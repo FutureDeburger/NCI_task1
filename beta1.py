@@ -11,7 +11,7 @@ class EEGAnalyzerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Анализатор ЭЭГ - СПМ спектральный анализ + Просмотр ЭЭГ")
-        self.root.geometry("1400x1000")
+        self.root.geometry("1600x1200")  # Увеличил размер окна
 
         self.data = None
         self.channel_names = ['P3', 'Pz', 'P4', 'O1', 'Oz', 'O2']
@@ -33,13 +33,25 @@ class EEGAnalyzerApp:
         self.create_widgets()
 
     def create_widgets(self):
-        # Заголовок
-        title_label = tk.Label(self.root, text="Анализатор ЭЭГ данных - Спектральный анализ + Детальный просмотр ЭЭГ",
+        # Основной контейнер с разделением на две части
+        main_paned = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, sashrelief=tk.RAISED, sashwidth=4)
+        main_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Левая панель - графики и управление
+        left_frame = tk.Frame(main_paned)
+        main_paned.add(left_frame, width=1000)  # Фиксированная ширина для графиков
+
+        # Правая панель - результаты (увеличим ширину)
+        right_frame = tk.Frame(main_paned)
+        main_paned.add(right_frame, width=600)  # Увеличил ширину панели результатов
+
+        # ЗАГОЛОВОК
+        title_label = tk.Label(left_frame, text="Анализатор ЭЭГ данных - Спектральный анализ + Детальный просмотр ЭЭГ",
                                font=("Arial", 16, "bold"))
         title_label.pack(pady=15)
 
         # Фрейм для кнопок в две строки
-        button_frame = tk.Frame(self.root)
+        button_frame = tk.Frame(left_frame)
         button_frame.pack(pady=10)
 
         # Первая строка кнопок
@@ -206,23 +218,23 @@ class EEGAnalyzerApp:
         self.zoom_in_btn.pack(side=tk.LEFT, padx=2)
 
         # Информация о файле
-        self.file_label = tk.Label(self.root, text="Файл не загружен",
+        self.file_label = tk.Label(left_frame, text="Файл не загружен",
                                    font=("Arial", 12))
         self.file_label.pack(pady=5)
 
-        # Область для графиков
-        self.create_plot_area()
+        # Область для графиков в левой панели
+        self.create_plot_area(left_frame)
 
-        # Область для результатов
-        self.create_results_area()
+        # Область для результатов в правой панели (УВЕЛИЧЕНА)
+        self.create_results_area(right_frame)
 
-    def create_plot_area(self):
+    def create_plot_area(self, parent):
         # Фрейм для графиков
-        plot_frame = tk.Frame(self.root)
+        plot_frame = tk.Frame(parent)
         plot_frame.pack(fill='both', expand=True, padx=10, pady=10)
 
         # Создаем фигуру matplotlib
-        self.fig = plt.figure(figsize=(15, 10))
+        self.fig = plt.figure(figsize=(12, 9))  # Немного уменьшил для баланса
 
         # Изначально создаем сетку для анализа
         self.setup_analysis_grid()
@@ -257,26 +269,80 @@ class EEGAnalyzerApp:
 
         self.fig.tight_layout(pad=3.0)
 
-    def create_results_area(self):
+    def create_results_area(self, parent):
         # Фрейм для результатов
-        results_frame = tk.Frame(self.root)
-        results_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        results_frame = tk.Frame(parent)
+        results_frame.pack(fill='both', expand=True, padx=10, pady=10)
 
         # Заголовок области результатов
         self.results_label = tk.Label(results_frame, text="РЕЗУЛЬТАТЫ ИЗМЕРЕНИЙ:",
                                       font=("Arial", 14, "bold"))
-        self.results_label.pack(anchor='w', pady=(0, 5))
+        self.results_label.pack(anchor='w', pady=(0, 10))
 
-        # Текстовое поле для результатов
-        self.results_text = tk.Text(results_frame, height=12, font=("Courier", 11),
-                                    wrap=tk.WORD, bg="#f8f9fa", relief=tk.SUNKEN, bd=2)
+        # Текстовое поле для результатов (УВЕЛИЧЕНО)
+        self.results_text = tk.Text(results_frame,
+                                    height=35,  # Увеличил высоту
+                                    width=80,  # Увеличил ширину
+                                    font=("Courier", 12),  # Увеличил шрифт
+                                    wrap=tk.WORD,
+                                    bg="#f8f9fa",
+                                    relief=tk.SUNKEN,
+                                    bd=2,
+                                    padx=10,  # Отступы внутри текстового поля
+                                    pady=10)
         self.results_text.pack(fill='both', expand=True)
+
+        # Фрейм для кнопок под текстовым полем
+        results_buttons_frame = tk.Frame(results_frame)
+        results_buttons_frame.pack(fill=tk.X, pady=(10, 0))
+
+        # Кнопка очистки результатов
+        clear_btn = tk.Button(results_buttons_frame,
+                              text="ОЧИСТИТЬ РЕЗУЛЬТАТЫ",
+                              command=self.clear_results,
+                              font=("Arial", 10, "bold"),
+                              width=20,
+                              height=1,
+                              bg="#F44336",
+                              fg="white")
+        clear_btn.pack(side=tk.LEFT, padx=5)
+
+        # Кнопка копирования результатов
+        copy_btn = tk.Button(results_buttons_frame,
+                             text="КОПИРОВАТЬ РЕЗУЛЬТАТЫ",
+                             command=self.copy_results,
+                             font=("Arial", 10, "bold"),
+                             width=20,
+                             height=1,
+                             bg="#2196F3",
+                             fg="white")
+        copy_btn.pack(side=tk.LEFT, padx=5)
 
         # Прокрутка для текстового поля
         scrollbar = tk.Scrollbar(self.results_text)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.results_text.config(yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.results_text.yview)
+
+        # Горизонтальная прокрутка
+        h_scrollbar = tk.Scrollbar(self.results_text, orient=tk.HORIZONTAL)
+        h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.results_text.config(xscrollcommand=h_scrollbar.set)
+        h_scrollbar.config(command=self.results_text.xview)
+
+    def clear_results(self):
+        """Очищает поле результатов"""
+        self.results_text.delete(1.0, tk.END)
+
+    def copy_results(self):
+        """Копирует результаты в буфер обмена"""
+        results = self.results_text.get(1.0, tk.END)
+        if results.strip():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(results)
+            messagebox.showinfo("Успех", "Результаты скопированы в буфер обмена!")
+        else:
+            messagebox.showwarning("Внимание", "Нет данных для копирования")
 
     def load_file(self):
         file_path = filedialog.askopenfilename(
@@ -488,28 +554,39 @@ class EEGAnalyzerApp:
             (self.eeg_start_time + self.eeg_display_seconds) * self.fs)]
 
         info_text = f"ПРОСМОТР ЭЭГ - КАНАЛ {self.channel_names[self.current_channel]}\n"
-        info_text += "=" * 60 + "\n\n"
-        info_text += f"Общая информация:\n"
+        info_text += "=" * 80 + "\n\n"
+        info_text += f"ОБЩАЯ ИНФОРМАЦИЯ:\n"
         info_text += f"• Канал: {self.channel_names[self.current_channel]}\n"
         info_text += f"• Длительность записи: {self.total_duration:.2f} сек\n"
         info_text += f"• Текущее окно: {self.eeg_start_time:.1f}-{self.eeg_start_time + self.eeg_display_seconds:.1f} сек\n"
         info_text += f"• Размер окна: {self.eeg_display_seconds} сек\n"
         info_text += f"• Частота дискретизации: {self.fs} Гц\n"
+        info_text += f"• Всего отсчетов: {len(self.data)}\n"
 
-        info_text += f"\nСтатистика текущего окна:\n"
-        info_text += "-" * 40 + "\n"
+        info_text += f"\nСТАТИСТИКА ТЕКУЩЕГО ОКНА:\n"
+        info_text += "-" * 50 + "\n"
         info_text += f"• Минимум: {np.min(current_segment):.2f} мкВ\n"
         info_text += f"• Максимум: {np.max(current_segment):.2f} мкВ\n"
         info_text += f"• Среднее: {np.mean(current_segment):.2f} мкВ\n"
         info_text += f"• Стандартное отклонение: {np.std(current_segment):.2f} мкВ\n"
+        info_text += f"• Динамический диапазон: {np.max(current_segment) - np.min(current_segment):.2f} мкВ\n"
 
-        info_text += f"\nУправление просмотром:\n"
+        info_text += f"\nСТАТИСТИКА ВСЕГО СИГНАЛА:\n"
+        info_text += "-" * 45 + "\n"
+        info_text += f"• Минимум: {np.min(channel_data):.2f} мкВ\n"
+        info_text += f"• Максимум: {np.max(channel_data):.2f} мкВ\n"
+        info_text += f"• Среднее: {np.mean(channel_data):.2f} мкВ\n"
+        info_text += f"• Стандартное отклонение: {np.std(channel_data):.2f} мкВ\n"
+
+        info_text += f"\nУПРАВЛЕНИЕ ПРОСМОТРОМ:\n"
         info_text += "-" * 40 + "\n"
         info_text += "• Кнопки каналов - переключение между электродами\n"
         info_text += "• 5/10/30/60 сек - размер временного окна\n"
         info_text += "◀ НАЗАД/ВПЕРЕД ▶ - прокрутка по времени\n"
         info_text += "+/- - изменение размера окна (зум)\n"
         info_text += "• Красная область на мини-карте - текущее положение\n"
+        info_text += "• ОЧИСТИТЬ РЕЗУЛЬТАТЫ - очистка этого поля\n"
+        info_text += "• КОПИРОВАТЬ РЕЗУЛЬТАТЫ - копирование в буфер обмена\n"
 
         self.results_text.insert(1.0, info_text)
         self.results_label.config(text=f"ПРОСМОТР ЭЭГ - {self.channel_names[self.current_channel]}:")
@@ -532,7 +609,7 @@ class EEGAnalyzerApp:
 
         self.canvas.draw()
 
-    # Остальные методы (analyze_data, update_plots, save_results) остаются без изменений
+    # Остальные методы остаются без изменений
     def analyze_data(self, analysis_type):
         if self.data is None:
             return
@@ -558,14 +635,14 @@ class EEGAnalyzerApp:
                 freq_range = (0.5, 45.0)
                 self.results_label.config(text="РЕЗУЛЬТАТЫ АНАЛИЗА ПОЛНОГО СПЕКТРА:")
 
-            results_text += "=" * 70 + "\n"
-            results_text += "Диапазоны частот:\n"
+            results_text += "=" * 80 + "\n"
+            results_text += "ДИАПАЗОНЫ ЧАСТОТ ДЛЯ АНАЛИЗА:\n"
             results_text += f"  Дельта (Δ): {self.freq_bands['delta'][0]}-{self.freq_bands['delta'][1]} Гц\n"
             results_text += f"  Тета (θ): {self.freq_bands['theta'][0]}-{self.freq_bands['theta'][1]} Гц\n"
             results_text += f"  Альфа (α): {self.freq_bands['alpha'][0]}-{self.freq_bands['alpha'][1]} Гц\n"
             results_text += f"  Бета (β): {self.freq_bands['beta'][0]}-{self.freq_bands['beta'][1]} Гц\n"
             results_text += f"  Гамма (γ): {self.freq_bands['gamma'][0]}-{self.freq_bands['gamma'][1]} Гц\n"
-            results_text += "=" * 70 + "\n\n"
+            results_text += "=" * 80 + "\n\n"
 
             # Анализируем каждый канал
             for i, name in enumerate(self.channel_names):
@@ -641,16 +718,18 @@ class EEGAnalyzerApp:
                         )
 
                         results_text += f"🔹 {name}:\n"
-                        results_text += f"   Δ: {delta_power:6.2f} | θ: {theta_power:6.2f} | α: {alpha_power:6.2f} | β: {beta_power:6.2f} | γ: {gamma_power:6.2f} мкВ²/Гц\n"
+                        results_text += f"   Δ: {delta_power:8.2f} мкВ²/Гц | θ: {theta_power:8.2f} мкВ²/Гц\n"
+                        results_text += f"   α: {alpha_power:8.2f} мкВ²/Гц | β: {beta_power:8.2f} мкВ²/Гц\n"
+                        results_text += f"   γ: {gamma_power:8.2f} мкВ²/Гц\n\n"
 
                 else:
                     powers.append(0)
                     all_psd_data.append(None)
                     all_freqs_data.append(None)
-                    results_text += f"🔹 {name}: Нет данных\n"
+                    results_text += f"🔹 {name}: Нет данных\n\n"
 
             # Добавляем итоговую информацию
-            results_text += "\n" + "=" * 70 + "\n"
+            results_text += "\n" + "=" * 80 + "\n"
             if analysis_type == 'delta':
                 results_text += f"МАКСИМАЛЬНАЯ МОЩНОСТЬ ДЕЛЬТА-РИТМА: {max(powers):.2f} мкВ²/Гц ({self.channel_names[np.argmax(powers)]})\n"
                 results_text += f"МИНИМАЛЬНАЯ МОЩНОСТЬ ДЕЛЬТА-РИТМА: {min(powers):.2f} мкВ²/Гц ({self.channel_names[np.argmin(powers)]})\n"

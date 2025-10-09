@@ -3,7 +3,6 @@ from tkinter import filedialog, messagebox, ttk
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.widgets import SpanSelector
 import os
 
 
@@ -11,17 +10,17 @@ class EEGAnalyzerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Анализатор ЭЭГ - СПМ спектральный анализ + Просмотр ЭЭГ")
-        self.root.geometry("1400x1000")
+        self.root.geometry("1600x1200")
 
         self.data = None
         self.channel_names = ['P3', 'Pz', 'P4', 'O1', 'Oz', 'O2']
-        self.current_view = 'analysis'  # 'analysis' или 'eeg'
-        self.current_channel = 0  # Текущий выбранный канал
-        self.fs = 5000  # Частота дискретизации
-        self.eeg_display_seconds = 10  # Секунд для отображения ЭЭГ
-        self.eeg_start_time = 0  # Начальное время для отображения ЭЭГ
+        self.current_view = 'analysis'
+        self.current_channel = 0
+        self.fs = 5000
+        self.eeg_display_seconds = 10
+        self.eeg_start_time = 0
 
-        # Обновленные диапазоны частот согласно стандартам
+        # Диапазоны частот
         self.freq_bands = {
             'delta': (0.5, 3.0),
             'theta': (4.0, 7.0),
@@ -33,13 +32,25 @@ class EEGAnalyzerApp:
         self.create_widgets()
 
     def create_widgets(self):
-        # Заголовок
-        title_label = tk.Label(self.root, text="Анализатор ЭЭГ данных - Спектральный анализ + Детальный просмотр ЭЭГ",
+        # Основной контейнер с разделением на две части
+        main_paned = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, sashrelief=tk.RAISED, sashwidth=4)
+        main_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Левая панель - графики и управление
+        left_frame = tk.Frame(main_paned)
+        main_paned.add(left_frame, width=1000)
+
+        # Правая панель - результаты
+        right_frame = tk.Frame(main_paned)
+        main_paned.add(right_frame, width=600)
+
+        # ЗАГОЛОВОК
+        title_label = tk.Label(left_frame, text="Анализатор ЭЭГ данных - Спектральный анализ + Детальный просмотр ЭЭГ",
                                font=("Arial", 16, "bold"))
         title_label.pack(pady=15)
 
         # Фрейм для кнопок в две строки
-        button_frame = tk.Frame(self.root)
+        button_frame = tk.Frame(left_frame)
         button_frame.pack(pady=10)
 
         # Первая строка кнопок
@@ -206,25 +217,21 @@ class EEGAnalyzerApp:
         self.zoom_in_btn.pack(side=tk.LEFT, padx=2)
 
         # Информация о файле
-        self.file_label = tk.Label(self.root, text="Файл не загружен",
+        self.file_label = tk.Label(left_frame, text="Файл не загружен",
                                    font=("Arial", 12))
         self.file_label.pack(pady=5)
 
-        # Область для графиков
-        self.create_plot_area()
+        # Область для графиков в левой панели
+        self.create_plot_area(left_frame)
 
-        # Область для результатов
-        self.create_results_area()
+        # Область для результатов в правой панели
+        self.create_results_area(right_frame)
 
-    def create_plot_area(self):
-        # Фрейм для графиков
-        plot_frame = tk.Frame(self.root)
+    def create_plot_area(self, parent):
+        plot_frame = tk.Frame(parent)
         plot_frame.pack(fill='both', expand=True, padx=10, pady=10)
 
-        # Создаем фигуру matplotlib
-        self.fig = plt.figure(figsize=(15, 10))
-
-        # Изначально создаем сетку для анализа
+        self.fig = plt.figure(figsize=(12, 9))
         self.setup_analysis_grid()
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=plot_frame)
@@ -232,11 +239,9 @@ class EEGAnalyzerApp:
         self.canvas.get_tk_widget().pack(fill='both', expand=True)
 
     def setup_analysis_grid(self):
-        """Настраивает сетку для анализа спектра"""
         self.fig.clear()
         self.gs = plt.GridSpec(3, 3, figure=self.fig)
 
-        # Основные оси для графиков анализа
         self.ax_hist = self.fig.add_subplot(self.gs[0, :])
         self.ax_psd = []
         for i in range(6):
@@ -247,36 +252,75 @@ class EEGAnalyzerApp:
         self.fig.tight_layout(pad=3.0)
 
     def setup_eeg_grid(self):
-        """Настраивает сетку для просмотра ЭЭГ"""
         self.fig.clear()
-        # Основной график ЭЭГ
         self.ax_eeg = self.fig.add_subplot(111)
-
-        # Мини-карта всего сигнала
-        self.ax_minimap = self.fig.add_axes([0.1, 0.92, 0.8, 0.06])  # [left, bottom, width, height]
-
+        self.ax_minimap = self.fig.add_axes([0.1, 0.92, 0.8, 0.06])
         self.fig.tight_layout(pad=3.0)
 
-    def create_results_area(self):
-        # Фрейм для результатов
-        results_frame = tk.Frame(self.root)
-        results_frame.pack(fill='both', expand=True, padx=20, pady=10)
+    def create_results_area(self, parent):
+        results_frame = tk.Frame(parent)
+        results_frame.pack(fill='both', expand=True, padx=10, pady=10)
 
-        # Заголовок области результатов
         self.results_label = tk.Label(results_frame, text="РЕЗУЛЬТАТЫ ИЗМЕРЕНИЙ:",
                                       font=("Arial", 14, "bold"))
-        self.results_label.pack(anchor='w', pady=(0, 5))
+        self.results_label.pack(anchor='w', pady=(0, 10))
 
-        # Текстовое поле для результатов
-        self.results_text = tk.Text(results_frame, height=12, font=("Courier", 11),
-                                    wrap=tk.WORD, bg="#f8f9fa", relief=tk.SUNKEN, bd=2)
+        self.results_text = tk.Text(results_frame,
+                                    height=35,
+                                    width=80,
+                                    font=("Courier", 12),
+                                    wrap=tk.WORD,
+                                    bg="#f8f9fa",
+                                    relief=tk.SUNKEN,
+                                    bd=2,
+                                    padx=10,
+                                    pady=10)
         self.results_text.pack(fill='both', expand=True)
 
-        # Прокрутка для текстового поля
+        results_buttons_frame = tk.Frame(results_frame)
+        results_buttons_frame.pack(fill=tk.X, pady=(10, 0))
+
+        clear_btn = tk.Button(results_buttons_frame,
+                              text="ОЧИСТИТЬ РЕЗУЛЬТАТЫ",
+                              command=self.clear_results,
+                              font=("Arial", 10, "bold"),
+                              width=20,
+                              height=1,
+                              bg="#F44336",
+                              fg="white")
+        clear_btn.pack(side=tk.LEFT, padx=5)
+
+        copy_btn = tk.Button(results_buttons_frame,
+                             text="КОПИРОВАТЬ РЕЗУЛЬТАТЫ",
+                             command=self.copy_results,
+                             font=("Arial", 10, "bold"),
+                             width=20,
+                             height=1,
+                             bg="#2196F3",
+                             fg="white")
+        copy_btn.pack(side=tk.LEFT, padx=5)
+
         scrollbar = tk.Scrollbar(self.results_text)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.results_text.config(yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.results_text.yview)
+
+        h_scrollbar = tk.Scrollbar(self.results_text, orient=tk.HORIZONTAL)
+        h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.results_text.config(xscrollcommand=h_scrollbar.set)
+        h_scrollbar.config(command=self.results_text.xview)
+
+    def clear_results(self):
+        self.results_text.delete(1.0, tk.END)
+
+    def copy_results(self):
+        results = self.results_text.get(1.0, tk.END)
+        if results.strip():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(results)
+            messagebox.showinfo("Успех", "Результаты скопированы в буфер обмена!")
+        else:
+            messagebox.showwarning("Внимание", "Нет данных для копирования")
 
     def load_file(self):
         file_path = filedialog.askopenfilename(
@@ -286,17 +330,14 @@ class EEGAnalyzerApp:
 
         if file_path:
             try:
-                # Чтение файла с обработкой заголовка
                 with open(file_path, 'r', encoding='utf-8') as file:
                     lines = file.readlines()
 
-                # Пропускаем строки заголовка и читаем данные
                 data_lines = []
                 for line in lines:
                     if not line.startswith(';') and line.strip():
                         data_lines.append(line.strip())
 
-                # Преобразуем данные в числовой формат
                 data = []
                 for line in data_lines:
                     if line.strip():
@@ -313,7 +354,6 @@ class EEGAnalyzerApp:
                 self.view_eeg_btn.config(state="normal")
                 self.back_btn.config(state="normal")
 
-                # Активируем кнопки управления ЭЭГ
                 for btn in self.channel_buttons:
                     btn.config(state="normal", bg="#E0E0E0")
                 for btn in self.time_buttons:
@@ -323,7 +363,6 @@ class EEGAnalyzerApp:
                 self.zoom_in_btn.config(state="normal")
                 self.zoom_out_btn.config(state="normal")
 
-                # Активируем первый канал
                 self.channel_buttons[0].config(bg="#2196F3", fg="white")
 
                 messagebox.showinfo("Успех",
@@ -333,24 +372,20 @@ class EEGAnalyzerApp:
                 messagebox.showerror("Ошибка", f"Не удалось загрузить файл:\n{str(e)}")
 
     def switch_channel(self, channel_idx):
-        """Переключает отображаемый канал ЭЭГ"""
         if self.data is None or self.current_view != 'eeg':
             return
 
         self.current_channel = channel_idx
 
-        # Обновляем цвета кнопок
         for i, btn in enumerate(self.channel_buttons):
             if i == channel_idx:
                 btn.config(bg="#2196F3", fg="white")
             else:
                 btn.config(bg="#E0E0E0", fg="black")
 
-        # Перерисовываем ЭЭГ
         self.update_eeg_display()
 
     def set_time_window(self, seconds):
-        """Устанавливает временное окно для отображения"""
         if self.data is None or self.current_view != 'eeg':
             return
 
@@ -358,7 +393,6 @@ class EEGAnalyzerApp:
         self.update_eeg_display()
 
     def scroll_left(self):
-        """Прокрутка назад во времени"""
         if self.data is None or self.current_view != 'eeg':
             return
 
@@ -368,7 +402,6 @@ class EEGAnalyzerApp:
             self.update_eeg_display()
 
     def scroll_right(self):
-        """Прокрутка вперед во времени"""
         if self.data is None or self.current_view != 'eeg':
             return
 
@@ -379,7 +412,6 @@ class EEGAnalyzerApp:
             self.update_eeg_display()
 
     def zoom_in(self):
-        """Уменьшает временное окно (зум внутрь)"""
         if self.data is None or self.current_view != 'eeg':
             return
 
@@ -388,59 +420,46 @@ class EEGAnalyzerApp:
             self.update_eeg_display()
 
     def zoom_out(self):
-        """Увеличивает временное окно (зум наружу)"""
         if self.data is None or self.current_view != 'eeg':
             return
 
-        if self.eeg_display_seconds < 300:  # Максимум 5 минут
+        if self.eeg_display_seconds < 300:
             self.eeg_display_seconds = min(300, self.eeg_display_seconds * 2)
             self.update_eeg_display()
 
     def view_raw_eeg(self):
-        """Просмотр исходных сигналов ЭЭГ"""
         if self.data is None:
             return
 
         try:
             self.current_view = 'eeg'
-            self.eeg_start_time = 0  # Сбрасываем к началу
+            self.eeg_start_time = 0
 
-            # Настраиваем сетку для ЭЭГ
             self.setup_eeg_grid()
-
-            # Показываем управление ЭЭГ
             self.eeg_control_frame.pack(pady=10)
-
-            # Обновляем отображение
             self.update_eeg_display()
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось отобразить ЭЭГ:\n{str(e)}")
 
     def update_eeg_display(self):
-        """Обновляет отображение ЭЭГ"""
         if self.data is None or self.current_view != 'eeg':
             return
 
         try:
-            # Очищаем графики
             self.ax_eeg.clear()
             self.ax_minimap.clear()
 
-            # Получаем данные текущего канала
             channel_data = self.data[:, self.current_channel]
             time = np.arange(len(channel_data)) / self.fs
 
-            # Определяем диапазон для отображения
             start_idx = int(self.eeg_start_time * self.fs)
             end_idx = int((self.eeg_start_time + self.eeg_display_seconds) * self.fs)
             end_idx = min(end_idx, len(channel_data))
 
-            # Данные для основного графика
             display_data = channel_data[start_idx:end_idx]
             display_time = time[start_idx:end_idx]
 
-            # Основной график ЭЭГ
             self.ax_eeg.plot(display_time, display_data, color='#2196F3', linewidth=1)
             self.ax_eeg.set_title(f'ЭЭГ - Канал {self.channel_names[self.current_channel]}',
                                   fontweight='bold', fontsize=14)
@@ -448,16 +467,13 @@ class EEGAnalyzerApp:
             self.ax_eeg.set_xlabel('Время (секунды)', fontsize=12)
             self.ax_eeg.grid(True, alpha=0.3)
 
-            # Автоматическое масштабирование по Y
             y_margin = (np.max(display_data) - np.min(display_data)) * 0.1
-            if y_margin == 0:  # Если сигнал постоянный
+            if y_margin == 0:
                 y_margin = 1
             self.ax_eeg.set_ylim(np.min(display_data) - y_margin, np.max(display_data) + y_margin)
 
-            # Мини-карта всего сигнала
             self.ax_minimap.plot(time, channel_data, color='gray', linewidth=0.5, alpha=0.7)
 
-            # Показываем текущее окно на мини-карте
             window_start = self.eeg_start_time
             window_end = self.eeg_start_time + self.eeg_display_seconds
 
@@ -466,21 +482,17 @@ class EEGAnalyzerApp:
             self.ax_minimap.set_ylabel('Вся запись', fontsize=8)
             self.ax_minimap.tick_params(axis='both', which='major', labelsize=6)
             self.ax_minimap.grid(True, alpha=0.2)
-
-            # Убираем метки по Y на мини-карте для экономии места
             self.ax_minimap.set_yticklabels([])
 
             self.fig.tight_layout()
             self.canvas.draw()
 
-            # Обновляем информацию
             self.update_eeg_info()
 
         except Exception as e:
             print(f"Ошибка при обновлении ЭЭГ: {e}")
 
     def update_eeg_info(self):
-        """Обновляет информацию о ЭЭГ в текстовом поле"""
         self.results_text.delete(1.0, tk.END)
 
         channel_data = self.data[:, self.current_channel]
@@ -488,58 +500,104 @@ class EEGAnalyzerApp:
             (self.eeg_start_time + self.eeg_display_seconds) * self.fs)]
 
         info_text = f"ПРОСМОТР ЭЭГ - КАНАЛ {self.channel_names[self.current_channel]}\n"
-        info_text += "=" * 60 + "\n\n"
-        info_text += f"Общая информация:\n"
+        info_text += "=" * 80 + "\n\n"
+        info_text += f"ОБЩАЯ ИНФОРМАЦИЯ:\n"
         info_text += f"• Канал: {self.channel_names[self.current_channel]}\n"
         info_text += f"• Длительность записи: {self.total_duration:.2f} сек\n"
         info_text += f"• Текущее окно: {self.eeg_start_time:.1f}-{self.eeg_start_time + self.eeg_display_seconds:.1f} сек\n"
         info_text += f"• Размер окна: {self.eeg_display_seconds} сек\n"
         info_text += f"• Частота дискретизации: {self.fs} Гц\n"
+        info_text += f"• Всего отсчетов: {len(self.data)}\n"
 
-        info_text += f"\nСтатистика текущего окна:\n"
-        info_text += "-" * 40 + "\n"
+        info_text += f"\nСТАТИСТИКА ТЕКУЩЕГО ОКНА:\n"
+        info_text += "-" * 50 + "\n"
         info_text += f"• Минимум: {np.min(current_segment):.2f} мкВ\n"
         info_text += f"• Максимум: {np.max(current_segment):.2f} мкВ\n"
         info_text += f"• Среднее: {np.mean(current_segment):.2f} мкВ\n"
         info_text += f"• Стандартное отклонение: {np.std(current_segment):.2f} мкВ\n"
+        info_text += f"• Динамический диапазон: {np.max(current_segment) - np.min(current_segment):.2f} мкВ\n"
 
-        info_text += f"\nУправление просмотром:\n"
+        info_text += f"\nСТАТИСТИКА ВСЕГО СИГНАЛА:\n"
+        info_text += "-" * 45 + "\n"
+        info_text += f"• Минимум: {np.min(channel_data):.2f} мкВ\n"
+        info_text += f"• Максимум: {np.max(channel_data):.2f} мкВ\n"
+        info_text += f"• Среднее: {np.mean(channel_data):.2f} мкВ\n"
+        info_text += f"• Стандартное отклонение: {np.std(channel_data):.2f} мкВ\n"
+
+        info_text += f"\nУПРАВЛЕНИЕ ПРОСМОТРОМ:\n"
         info_text += "-" * 40 + "\n"
         info_text += "• Кнопки каналов - переключение между электродами\n"
         info_text += "• 5/10/30/60 сек - размер временного окна\n"
         info_text += "◀ НАЗАД/ВПЕРЕД ▶ - прокрутка по времени\n"
         info_text += "+/- - изменение размера окна (зум)\n"
         info_text += "• Красная область на мини-карте - текущее положение\n"
+        info_text += "• ОЧИСТИТЬ РЕЗУЛЬТАТЫ - очистка этого поля\n"
+        info_text += "• КОПИРОВАТЬ РЕЗУЛЬТАТЫ - копирование в буфер обмена\n"
 
         self.results_text.insert(1.0, info_text)
         self.results_label.config(text=f"ПРОСМОТР ЭЭГ - {self.channel_names[self.current_channel]}:")
 
     def show_analysis_view(self):
-        """Возврат к виду анализа"""
         if self.data is None:
             return
 
         self.current_view = 'analysis'
-
-        # Восстанавливаем исходную конфигурацию графиков
         self.setup_analysis_grid()
         self.results_label.config(text="РЕЗУЛЬТАТЫ ИЗМЕРЕНИЙ:")
         self.results_text.delete(1.0, tk.END)
         self.results_text.insert(1.0, "Готов к анализу. Выберите тип анализа выше.")
-
-        # Скрываем управление ЭЭГ
         self.eeg_control_frame.pack_forget()
-
         self.canvas.draw()
 
-    # Остальные методы (analyze_data, update_plots, save_results) остаются без изменений
+    def compute_psd(self, signal, fs):
+        """Вычисление СПМ методом периодограммы с окном Ханна"""
+        N = len(signal)
+
+        # Проверка на минимальную длину сигнала
+        if N < 1000:
+            return None, None
+
+        # Проверка на постоянный сигнал
+        if np.std(signal) < 1e-10:
+            return None, None
+
+        # Убираем постоянную составляющую
+        signal = signal - np.mean(signal)
+
+        # Применяем окно Ханна
+        window = np.hanning(N)
+        signal_windowed = signal * window
+
+        # Вычисление БПФ
+        fft_result = np.fft.fft(signal_windowed, n=N)
+
+        # Расчет СПМ с правильной нормализацией
+        window_power = np.sum(window ** 2)  # Мощность окна
+        psd = (np.abs(fft_result) ** 2) / (fs * window_power)
+
+        # Частоты
+        frequencies = np.fft.fftfreq(N, 1 / fs)
+
+        # Положительные частоты
+        positive_idx = (frequencies >= 0) & (frequencies <= fs / 2)
+        freqs_positive = frequencies[positive_idx]
+        psd_positive = psd[positive_idx]
+
+        return freqs_positive, psd_positive
+
+    def compute_band_power(self, psd, freqs, f_low, f_high):
+        """Вычисление мощности в заданном частотном диапазоне"""
+        freq_mask = (freqs >= f_low) & (freqs <= f_high)
+        if np.any(freq_mask):
+            power = np.trapz(psd[freq_mask], freqs[freq_mask])
+            return power
+        return 0.0
+
     def analyze_data(self, analysis_type):
         if self.data is None:
             return
 
-        # Переключаемся на вид анализа
         self.show_analysis_view()
-
         self.results_text.delete(1.0, tk.END)
         self.current_view = 'analysis'
 
@@ -558,122 +616,89 @@ class EEGAnalyzerApp:
                 freq_range = (0.5, 45.0)
                 self.results_label.config(text="РЕЗУЛЬТАТЫ АНАЛИЗА ПОЛНОГО СПЕКТРА:")
 
-            results_text += "=" * 70 + "\n"
-            results_text += "Диапазоны частот:\n"
+            results_text += "=" * 80 + "\n"
+            results_text += "ДИАПАЗОНЫ ЧАСТОТ ДЛЯ АНАЛИЗА:\n"
             results_text += f"  Дельта (Δ): {self.freq_bands['delta'][0]}-{self.freq_bands['delta'][1]} Гц\n"
             results_text += f"  Тета (θ): {self.freq_bands['theta'][0]}-{self.freq_bands['theta'][1]} Гц\n"
             results_text += f"  Альфа (α): {self.freq_bands['alpha'][0]}-{self.freq_bands['alpha'][1]} Гц\n"
             results_text += f"  Бета (β): {self.freq_bands['beta'][0]}-{self.freq_bands['beta'][1]} Гц\n"
             results_text += f"  Гамма (γ): {self.freq_bands['gamma'][0]}-{self.freq_bands['gamma'][1]} Гц\n"
-            results_text += "=" * 70 + "\n\n"
+            results_text += "=" * 80 + "\n\n"
 
             # Анализируем каждый канал
             for i, name in enumerate(self.channel_names):
                 signal = self.data[:, i]
 
-                # Используем весь сигнал
-                if len(signal) > 0:
-                    # Убираем постоянную составляющую (DC offset)
-                    signal = signal - np.mean(signal)
+                # Вычисляем СПМ
+                freqs, psd = self.compute_psd(signal, fs)
 
-                    N = len(signal)
-
-                    # Применяем окно Ханна для уменьшения утечки спектра
-                    window = np.hanning(N)
-                    signal_windowed = signal * window
-
-                    # Вычисление СПМ с нормализацией
-                    fft_result = np.fft.fft(signal_windowed)
-
-                    # Расчет СПМ
-                    psd = (np.real(fft_result) ** 2 + np.imag(fft_result) ** 2)
-                    psd = psd / (fs * np.sum(window ** 2))
-
-                    frequencies = np.fft.fftfreq(N, 1 / fs)
-
-                    # Сохраняем данные для построения графиков
-                    positive_idx = frequencies >= 0
-                    freqs_positive = frequencies[positive_idx]
-                    psd_positive = psd[positive_idx]
-
-                    all_psd_data.append(psd_positive)
-                    all_freqs_data.append(freqs_positive)
-
-                    # Мощность в выбранном диапазоне
-                    freq_mask = (freqs_positive >= freq_range[0]) & (freqs_positive <= freq_range[1])
-                    power = np.trapezoid(psd_positive[freq_mask], freqs_positive[freq_mask])
-
-                    powers.append(power)
-
-                    if analysis_type == 'delta':
-                        results_text += f"🔹 {name}: {power:.2f} мкВ²/Гц\n"
-                    else:
-                        # Для полного спектра показываем мощность всех ритмов
-                        delta_power = np.trapezoid(
-                            psd_positive[(freqs_positive >= self.freq_bands['delta'][0]) &
-                                         (freqs_positive <= self.freq_bands['delta'][1])],
-                            freqs_positive[(freqs_positive >= self.freq_bands['delta'][0]) &
-                                           (freqs_positive <= self.freq_bands['delta'][1])]
-                        )
-                        theta_power = np.trapezoid(
-                            psd_positive[(freqs_positive >= self.freq_bands['theta'][0]) &
-                                         (freqs_positive <= self.freq_bands['theta'][1])],
-                            freqs_positive[(freqs_positive >= self.freq_bands['theta'][0]) &
-                                           (freqs_positive <= self.freq_bands['theta'][1])]
-                        )
-                        alpha_power = np.trapezoid(
-                            psd_positive[(freqs_positive >= self.freq_bands['alpha'][0]) &
-                                         (freqs_positive <= self.freq_bands['alpha'][1])],
-                            freqs_positive[(freqs_positive >= self.freq_bands['alpha'][0]) &
-                                           (freqs_positive <= self.freq_bands['alpha'][1])]
-                        )
-                        beta_power = np.trapezoid(
-                            psd_positive[(freqs_positive >= self.freq_bands['beta'][0]) &
-                                         (freqs_positive <= self.freq_bands['beta'][1])],
-                            freqs_positive[(freqs_positive >= self.freq_bands['beta'][0]) &
-                                           (freqs_positive <= self.freq_bands['beta'][1])]
-                        )
-                        gamma_power = np.trapezoid(
-                            psd_positive[(freqs_positive >= self.freq_bands['gamma'][0]) &
-                                         (freqs_positive <= self.freq_bands['gamma'][1])],
-                            freqs_positive[(freqs_positive >= self.freq_bands['gamma'][0]) &
-                                           (freqs_positive <= self.freq_bands['gamma'][1])]
-                        )
-
-                        results_text += f"🔹 {name}:\n"
-                        results_text += f"   Δ: {delta_power:6.2f} | θ: {theta_power:6.2f} | α: {alpha_power:6.2f} | β: {beta_power:6.2f} | γ: {gamma_power:6.2f} мкВ²/Гц\n"
-
-                else:
+                if freqs is None or psd is None:
                     powers.append(0)
                     all_psd_data.append(None)
                     all_freqs_data.append(None)
-                    results_text += f"🔹 {name}: Нет данных\n"
+                    results_text += f"🔹 {name}: Недостаточно данных для анализа\n\n"
+                    continue
 
-            # Добавляем итоговую информацию
-            results_text += "\n" + "=" * 70 + "\n"
+                # Сохраняем данные для графиков
+                all_psd_data.append(psd)
+                all_freqs_data.append(freqs)
+
+                # Мощность в выбранном диапазоне
+                power = self.compute_band_power(psd, freqs, freq_range[0], freq_range[1])
+                powers.append(power)
+
+                if analysis_type == 'delta':
+                    results_text += f"🔹 {name}: {power:.6f} мкВ²/Гц\n"
+                else:
+                    # Для полного спектра показываем мощность всех ритмов
+                    band_powers = {}
+                    for band_name, (f_low, f_high) in self.freq_bands.items():
+                        band_power = self.compute_band_power(psd, freqs, f_low, f_high)
+                        band_powers[band_name] = band_power
+
+                    results_text += f"🔹 {name}:\n"
+                    results_text += f"   Δ: {band_powers['delta']:12.6f} мкВ²/Гц\n"
+                    results_text += f"   θ: {band_powers['theta']:12.6f} мкВ²/Гц\n"
+                    results_text += f"   α: {band_powers['alpha']:12.6f} мкВ²/Гц\n"
+                    results_text += f"   β: {band_powers['beta']:12.6f} мкВ²/Гц\n"
+                    results_text += f"   γ: {band_powers['gamma']:12.6f} мкВ²/Гц\n\n"
+
+            # Итоговая информация
+            results_text += "\n" + "=" * 80 + "\n"
             if analysis_type == 'delta':
-                results_text += f"МАКСИМАЛЬНАЯ МОЩНОСТЬ ДЕЛЬТА-РИТМА: {max(powers):.2f} мкВ²/Гц ({self.channel_names[np.argmax(powers)]})\n"
-                results_text += f"МИНИМАЛЬНАЯ МОЩНОСТЬ ДЕЛЬТА-РИТМА: {min(powers):.2f} мкВ²/Гц ({self.channel_names[np.argmin(powers)]})\n"
-                results_text += f"СРЕДНЯЯ МОЩНОСТЬ ДЕЛЬТА-РИТМА: {np.mean(powers):.2f} мкВ²/Гц\n"
+                if len(powers) > 0 and max(powers) > 0:
+                    results_text += f"МАКСИМАЛЬНАЯ МОЩНОСТЬ ДЕЛЬТА-РИТМА: {max(powers):.6f} мкВ²/Гц ({self.channel_names[np.argmax(powers)]})\n"
+                    results_text += f"МИНИМАЛЬНАЯ МОЩНОСТЬ ДЕЛЬТА-РИТМА: {min(powers):.6f} мкВ²/Гц ({self.channel_names[np.argmin(powers)]})\n"
+                    results_text += f"СРЕДНЯЯ МОЩНОСТЬ ДЕЛЬТА-РИТМА: {np.mean(powers):.6f} мкВ²/Гц\n"
+                else:
+                    results_text += "НЕТ ДАННЫХ ДЛЯ АНАЛИЗА ДЕЛЬТА-РИТМА\n"
             else:
-                results_text += f"ОБЩАЯ МОЩНОСТЬ СПЕКТРА (0.5-45 Гц): {np.mean(powers):.2f} мкВ²/Гц\n"
+                if len(powers) > 0 and np.mean(powers) > 0:
+                    results_text += f"ОБЩАЯ МОЩНОСТЬ СПЕКТРА (0.5-45 Гц): {np.mean(powers):.6f} мкВ²/Гц\n"
+                else:
+                    results_text += "НЕТ ДАННЫХ ДЛЯ АНАЛИЗА СПЕКТРА\n"
 
-            # Обновляем текстовое поле
+            # Информация о методе анализа
+            if len(all_freqs_data) > 0 and all_freqs_data[0] is not None:
+                freq_resolution = all_freqs_data[0][1] - all_freqs_data[0][0]
+                results_text += f"\nМЕТОД АНАЛИЗА: Периодограмма с окном Ханна\n"
+                results_text += f"Размер окна: {len(signal)} отсчетов\n"
+                results_text += f"Частота дискретизации: {fs} Гц\n"
+                results_text += f"Разрешение по частоте: {freq_resolution:.4f} Гц\n"
+                results_text += f"Максимальная частота: {fs / 2} Гц\n"
+
             self.results_text.insert(1.0, results_text)
-
-            # Строим графики
             self.update_plots(powers, all_psd_data, all_freqs_data, analysis_type)
 
         except Exception as e:
-            messagebox.showerror("Ошибка анализа", str(e))
+            messagebox.showerror("Ошибка анализа", f"Критическая ошибка анализа:\n{str(e)}")
 
     def update_plots(self, powers, all_psd_data, all_freqs_data, analysis_type):
-        # Очищаем все графики
         self.ax_hist.clear()
         for ax in self.ax_psd:
             ax.clear()
 
-        # График 1: Гистограмма (верхний график)
+        # Гистограмма
         if analysis_type == 'delta':
             title = 'Мощность дельта-ритма по каналам (0.5-3 Гц)'
             ylabel = 'Мощность (мкВ²/Гц)'
@@ -687,62 +712,38 @@ class EEGAnalyzerApp:
         self.ax_hist.set_ylabel(ylabel, fontsize=12)
         self.ax_hist.grid(True, alpha=0.3)
 
-        # Добавляем значения на столбцы гистограммы
         for bar, power in zip(bars, powers):
             self.ax_hist.text(bar.get_x() + bar.get_width() / 2,
                               bar.get_height() + max(powers) * 0.01,
-                              f'{power:.2f}', ha='center', va='bottom', fontsize=11)
+                              f'{power:.4f}', ha='center', va='bottom', fontsize=11)
 
-        # Графики 2-7: СПМ для каждого канала
+        # Графики СПМ для каждого канала
         colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown']
 
         for i, (ax, name, color) in enumerate(zip(self.ax_psd, self.channel_names, colors)):
             if all_psd_data[i] is not None and all_freqs_data[i] is not None:
-                # Рисуем график СПМ
                 ax.plot(all_freqs_data[i], all_psd_data[i], color=color, linewidth=1)
 
                 if analysis_type == 'delta':
                     ax.set_xlim(0, 6)
-                    # Подсвечиваем дельта-диапазон
                     delta_mask = (all_freqs_data[i] >= self.freq_bands['delta'][0]) & (
                             all_freqs_data[i] <= self.freq_bands['delta'][1])
                     ax.fill_between(all_freqs_data[i][delta_mask],
                                     all_psd_data[i][delta_mask],
                                     alpha=0.3, color=color)
-                    ax.set_title(f'{name} - Δ: {powers[i]:.2f}', fontsize=12, fontweight='bold')
-
-                    # Вертикальные линии для дельта-ритма
+                    ax.set_title(f'{name} - Δ: {powers[i]:.4f}', fontsize=12, fontweight='bold')
                     ax.axvline(x=self.freq_bands['delta'][0], color='gray', linestyle='--', alpha=0.7)
                     ax.axvline(x=self.freq_bands['delta'][1], color='gray', linestyle='--', alpha=0.7)
                 else:
                     ax.set_xlim(0, 50)
-                    # Подсвечиваем все основные ритмы с новыми диапазонами
-                    delta_mask = (all_freqs_data[i] >= self.freq_bands['delta'][0]) & (
-                            all_freqs_data[i] <= self.freq_bands['delta'][1])
-                    theta_mask = (all_freqs_data[i] >= self.freq_bands['theta'][0]) & (
-                            all_freqs_data[i] <= self.freq_bands['theta'][1])
-                    alpha_mask = (all_freqs_data[i] >= self.freq_bands['alpha'][0]) & (
-                            all_freqs_data[i] <= self.freq_bands['alpha'][1])
-                    beta_mask = (all_freqs_data[i] >= self.freq_bands['beta'][0]) & (
-                            all_freqs_data[i] <= self.freq_bands['beta'][1])
-                    gamma_mask = (all_freqs_data[i] >= self.freq_bands['gamma'][0]) & (
-                            all_freqs_data[i] <= self.freq_bands['gamma'][1])
-
-                    ax.fill_between(all_freqs_data[i][delta_mask], all_psd_data[i][delta_mask], alpha=0.3, color='red',
-                                    label='Δ')
-                    ax.fill_between(all_freqs_data[i][theta_mask], all_psd_data[i][theta_mask], alpha=0.3, color='blue',
-                                    label='θ')
-                    ax.fill_between(all_freqs_data[i][alpha_mask], all_psd_data[i][alpha_mask], alpha=0.3,
-                                    color='green', label='α')
-                    ax.fill_between(all_freqs_data[i][beta_mask], all_psd_data[i][beta_mask], alpha=0.3, color='orange',
-                                    label='β')
-                    ax.fill_between(all_freqs_data[i][gamma_mask], all_psd_data[i][gamma_mask], alpha=0.3,
-                                    color='purple', label='γ')
-
+                    for band_name, (f_low, f_high) in self.freq_bands.items():
+                        band_mask = (all_freqs_data[i] >= f_low) & (all_freqs_data[i] <= f_high)
+                        ax.fill_between(all_freqs_data[i][band_mask],
+                                        all_psd_data[i][band_mask],
+                                        alpha=0.3, label=band_name)
                     ax.set_title(f'{name} - Полный спектр', fontsize=12, fontweight='bold')
                     ax.legend(fontsize=8)
 
-                # Безопасное вычисление максимума для оси Y
                 if analysis_type == 'delta':
                     mask = all_freqs_data[i] <= 6
                 else:
@@ -761,7 +762,6 @@ class EEGAnalyzerApp:
                         transform=ax.transAxes, fontsize=12)
                 ax.set_title(f'{name} - Нет данных', fontsize=10)
 
-        # Обновляем canvas
         self.fig.tight_layout()
         self.canvas.draw()
 
@@ -777,7 +777,6 @@ class EEGAnalyzerApp:
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(self.results_text.get(1.0, tk.END))
 
-                # Также сохраняем график как изображение
                 plot_path = file_path.replace('.txt', '_plot.png')
                 self.fig.savefig(plot_path, dpi=300, bbox_inches='tight')
 
@@ -786,7 +785,6 @@ class EEGAnalyzerApp:
                 messagebox.showerror("Ошибка", f"Не удалось сохранить:\n{str(e)}")
 
 
-# Запуск приложения
 if __name__ == "__main__":
     root = tk.Tk()
     app = EEGAnalyzerApp(root)
