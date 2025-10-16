@@ -45,7 +45,7 @@ class EEGAnalyzerApp:
         main_paned.add(right_frame, width=600)
 
         # ЗАГОЛОВОК
-        title_label = tk.Label(left_frame, text="Анализ дельта-ритма",
+        title_label = tk.Label(left_frame, text="Анализ СПМ дельта-ритма",
                                font=("Arial", 16, "bold"))
         title_label.pack(pady=15)
 
